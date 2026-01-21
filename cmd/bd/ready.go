@@ -143,6 +143,7 @@ This is useful for agents executing molecules to see which steps can run next.`,
 
 			// Show upgrade notification if needed
 			maybeShowUpgradeNotification()
+			maybePrintReadyDatabaseContext(dbPath)
 
 			if len(issues) == 0 {
 				// Check if there are any open issues at all
@@ -209,7 +210,7 @@ This is useful for agents executing molecules to see which steps can run next.`,
 				os.Exit(1)
 			}
 		}
-	}
+		}
 		if jsonOutput {
 			// Always output array, even if empty
 			if issues == nil {
@@ -220,6 +221,7 @@ This is useful for agents executing molecules to see which steps can run next.`,
 		}
 		// Show upgrade notification if needed
 		maybeShowUpgradeNotification()
+		maybePrintReadyDatabaseContext(dbPath)
 
 		if len(issues) == 0 {
 			// Check if there are any open issues at all
