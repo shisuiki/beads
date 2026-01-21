@@ -118,6 +118,75 @@ func TestTransactionCreateIssue(t *testing.T) {
 	}
 }
 
+func TestTransactionCreateIssuePrefixOverride(t *testing.T) {
+	ctx := context.Background()
+	store, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	explicitID := "te-TerraNomadicCity-witness"
+	err := store.RunInTransaction(ctx, func(tx storage.Transaction) error {
+		issue := &types.Issue{
+			ID:             explicitID,
+			Title:          "Agent Identity",
+			Status:         types.StatusOpen,
+			Priority:       2,
+			IssueType:      types.TypeTask,
+			PrefixOverride: "te",
+		}
+		return tx.CreateIssue(ctx, issue, "test-actor")
+	})
+	if err != nil {
+		t.Fatalf("RunInTransaction failed: %v", err)
+	}
+
+	issue, err := store.GetIssue(ctx, explicitID)
+	if err != nil {
+		t.Fatalf("GetIssue failed: %v", err)
+	}
+	if issue == nil {
+		t.Fatalf("expected issue %s to exist", explicitID)
+	}
+	if issue.ID != explicitID {
+		t.Fatalf("expected ID %s, got %s", explicitID, issue.ID)
+	}
+}
+
+func TestTransactionCreateIssuesPrefixOverride(t *testing.T) {
+	ctx := context.Background()
+	store, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	explicitID := "te-TerraNomadicCity-witness"
+	issues := []*types.Issue{
+		{
+			ID:             explicitID,
+			Title:          "Agent Identity",
+			Status:         types.StatusOpen,
+			Priority:       2,
+			IssueType:      types.TypeTask,
+			PrefixOverride: "te",
+		},
+	}
+
+	err := store.RunInTransaction(ctx, func(tx storage.Transaction) error {
+		return tx.CreateIssues(ctx, issues, "test-actor")
+	})
+	if err != nil {
+		t.Fatalf("RunInTransaction failed: %v", err)
+	}
+
+	issue, err := store.GetIssue(ctx, explicitID)
+	if err != nil {
+		t.Fatalf("GetIssue failed: %v", err)
+	}
+	if issue == nil {
+		t.Fatalf("expected issue %s to exist", explicitID)
+	}
+	if issue.ID != explicitID {
+		t.Fatalf("expected ID %s, got %s", explicitID, issue.ID)
+	}
+}
+
 // TestTransactionRollbackOnCreateError tests that issues are not created
 // when transaction rolls back due to error.
 func TestTransactionRollbackOnCreateError(t *testing.T) {

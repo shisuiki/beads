@@ -151,10 +151,14 @@ func (t *sqliteTxStorage) CreateIssue(ctx context.Context, issue *types.Issue, a
 		return fmt.Errorf("failed to get config: %w", err)
 	}
 
-	// Use IDPrefix override if set, combined with config prefix
-	// e.g., configPrefix="bd" + IDPrefix="wisp" → "bd-wisp"
+	// Determine prefix for ID generation and validation:
+	// 1. PrefixOverride completely replaces config prefix (for cross-rig creation)
+	// 2. IDPrefix appends to config prefix (e.g., "bd" + "wisp" → "bd-wisp")
+	// 3. Otherwise use config prefix as-is
 	prefix := configPrefix
-	if issue.IDPrefix != "" {
+	if issue.PrefixOverride != "" {
+		prefix = issue.PrefixOverride
+	} else if issue.IDPrefix != "" {
 		prefix = configPrefix + "-" + issue.IDPrefix
 	}
 
@@ -264,9 +268,9 @@ func (t *sqliteTxStorage) CreateIssues(ctx context.Context, issues []*types.Issu
 	}
 
 	// Get prefix from config
-	var prefix string
-	err = t.conn.QueryRowContext(ctx, `SELECT value FROM config WHERE key = ?`, "issue_prefix").Scan(&prefix)
-	if err == sql.ErrNoRows || prefix == "" {
+	var configPrefix string
+	err = t.conn.QueryRowContext(ctx, `SELECT value FROM config WHERE key = ?`, "issue_prefix").Scan(&configPrefix)
+	if err == sql.ErrNoRows || configPrefix == "" {
 		return fmt.Errorf("database not initialized: issue_prefix config is missing")
 	} else if err != nil {
 		return fmt.Errorf("failed to get config: %w", err)
@@ -274,14 +278,21 @@ func (t *sqliteTxStorage) CreateIssues(ctx context.Context, issues []*types.Issu
 
 	// Generate IDs for issues that don't have them
 	for _, issue := range issues {
+		issuePrefix := configPrefix
+		if issue.PrefixOverride != "" {
+			issuePrefix = issue.PrefixOverride
+		} else if issue.IDPrefix != "" {
+			issuePrefix = configPrefix + "-" + issue.IDPrefix
+		}
+
 		if issue.ID == "" {
-			generatedID, err := GenerateIssueID(ctx, t.conn, prefix, issue, actor)
+			generatedID, err := GenerateIssueID(ctx, t.conn, issuePrefix, issue, actor)
 			if err != nil {
 				return fmt.Errorf("failed to generate issue ID: %w", err)
 			}
 			issue.ID = generatedID
 		} else {
-			if err := ValidateIssueIDPrefix(issue.ID, prefix); err != nil {
+			if err := ValidateIssueIDPrefix(issue.ID, issuePrefix); err != nil {
 				return fmt.Errorf("failed to validate issue ID prefix: %w", err)
 			}
 		}
